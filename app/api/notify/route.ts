@@ -56,4 +56,8 @@ export async function GET(req: Request) {
   await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.strin
+    body: JSON.stringify({ chat_id: chatId, text }),
+  });
+
+  return NextResponse.json({ ok: true, mode: morning ? "출근" : "퇴근" });
+}
