@@ -79,8 +79,18 @@ export default function Home() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 15000); // 15초마다 갱신
-    return () => clearInterval(t);
+    // 30초마다 갱신, 탭이 안 보일 땐 호출 안 함 (서울 API 일일 한도 보호)
+    const t = setInterval(() => {
+      if (!document.hidden) load();
+    }, 30000);
+    const onVis = () => {
+      if (!document.hidden) load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, []);
 
   // 퇴근길: 역·호선·방면별 그룹 (각 2대)
@@ -161,7 +171,7 @@ export default function Home() {
         : emptyMsg}
 
       <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, color: "#5a6270" }}>
-        업데이트 {updated} · 15초마다 자동 갱신
+        업데이트 {updated} · 30초마다 자동 갱신
       </div>
     </main>
   );

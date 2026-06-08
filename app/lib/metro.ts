@@ -40,7 +40,10 @@ export async function getArrivals(opts: Opts = {}): Promise<Arrival[]> {
     station
   )}`;
 
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, {
+    cache: "no-store",
+    signal: typeof (AbortSignal as any).timeout === "function" ? (AbortSignal as any).timeout(8000) : undefined,
+  });
   const data = await res.json();
   const list: any[] = data?.realtimeArrivalList ?? [];
 

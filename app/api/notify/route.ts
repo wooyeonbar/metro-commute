@@ -84,14 +84,14 @@ export async function GET(req: Request) {
   try {
     if (morning) {
       // 출근: env STATION + env DIRECTION (신당 → 회사 방향)
-      const arr = (await getArrivals()).slice(0, 3);
+      const arr = (await getArrivals().catch(() => getArrivals())).slice(0, 3);
       text = `🚇 ${process.env.STATION} 출근길 (회사 방향)\n${fmt(arr)}`;
     } else {
       // 퇴근: 을지로3가(2·3호선) + 명동(4호선), 역·호선·방향별 그룹
       const pmStation = process.env.STATION_PM || process.env.STATION || "";
       const stations = [pmStation, "명동"];
       const lists = await Promise.all(
-        stations.map((s) => getArrivals({ station: s, direction: null, subwayId: "" }))
+        stations.map((s) => getArrivals({ station: s, direction: null, subwayId: "" }).catch(() => []))
       );
       const groups = new Map<string, { head: string; arr: Arrival[] }>();
       stations.forEach((st, i) => {
