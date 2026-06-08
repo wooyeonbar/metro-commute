@@ -9,10 +9,43 @@ type Arrival = {
   message: string;
   minutes: number | null;
   express: boolean;
+  heading?: string;
+  station?: string;
 };
 
+const LINE_COLOR: Record<string, string> = {
+  "1호선": "#0052A4", "2호선": "#00A84D", "3호선": "#EF7C1C", "4호선": "#00A5DE",
+  "5호선": "#996CAC", "6호선": "#CD7C2F", "7호선": "#747F00", "8호선": "#E6186C",
+  "9호선": "#BDB092",
+};
+
+function Badge({ line }: { line: string }) {
+  const num = line.replace("호선", "");
+  return (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 24, height: 24, borderRadius: "50%",
+        background: LINE_COLOR[line] ?? "#5a6270",
+        color: "#fff", fontSize: 13, fontWeight: 700, flexShrink: 0,
+      }}
+    >
+      {num.length <= 2 ? num : num.slice(0, 2)}
+    </span>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 14, color: "#7d8694", letterSpacing: 1, margin: "10px 0 2px" }}>
+      {children}
+    </div>
+  );
+}
+
 export default function Home() {
-  const [arrivals, setArrivals] = useState<Arrival[]>([]);
+  const [morning, setMorning] = useState<Arrival[]>([]);
+  const [evening, setEvening] = useState<Arrival[]>([]);
   const [updated, setUpdated] = useState<string>("");
   const [err, setErr] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
@@ -22,7 +55,8 @@ export default function Home() {
       const r = await fetch("/api/arrival");
       const d = await r.json();
       if (!d.ok) throw new Error(d.error);
-      setArrivals(d.arrivals.slice(0, 3));
+      setMorning(d.morning ?? []);
+      setEvening(d.evening ?? []);
       setUpdated(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       setErr("");
       setLoaded(true);
@@ -37,51 +71,84 @@ export default function Home() {
     return () => clearInterval(t);
   }, []);
 
+  // 퇴근길: 역·호선·방면별 그룹 (각 2대)
+  const groups = new Map<string, Arrival[]>();
+  for (const a of evening) {
+    const key = `${a.station}|${a.line}|${a.heading || a.direction}`;
+    const g = groups.get(key) ?? [];
+    if (g.length < 2) g.push(a);
+    groups.set(key, g);
+  }
+
+  const emptyMsg = (
+    <div style={{ color: "#7d8694", fontSize: 14, padding: "6px 2px" }}>
+      {loaded ? "지금 도착 예정 열차가 없어요" : "불러오는 중…"}
+    </div>
+  );
+
   return (
     <main
       style={{
-        minHeight: "100dvh",
-        background: "#0b0d12",
-        color: "#f5f7fa",
+        minHeight: "100dvh", background: "#0b0d12", color: "#f5f7fa",
         fontFamily: "-apple-system, system-ui, sans-serif",
-        padding: "28px 22px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 18,
+        padding: "24px 18px", display: "flex", flexDirection: "column", gap: 10,
       }}
     >
-      <div style={{ fontSize: 15, color: "#7d8694", letterSpacing: 1 }}>
-        🚇 출근길 · 다음 열차
-      </div>
-
       {err && <div style={{ color: "#ff6b6b" }}>{err}</div>}
 
-      {arrivals.map((a, i) => (
-        <div
-          key={i}
-          style={{
-            background: i === 0 ? "#161b26" : "transparent",
-            border: "1px solid #1f2633",
-            borderRadius: 16,
-            padding: "18px 20px",
-          }}
-        >
-          <div style={{ fontSize: 13, color: "#7d8694", marginBottom: 6 }}>
-            {a.line} · {a.dest}행{a.express ? " · ⚡급행" : ""}
-          </div>
-          <div style={{ fontSize: i === 0 ? 34 : 24, fontWeight: 700, lineHeight: 1.1 }}>
-            {a.message}
-          </div>
-        </div>
-      ))}
+      {/* ── 출근길 ── */}
+      <SectionTitle>🏢 출근길 · 신당 → 을지로3가</SectionTitle>
+      {morning.length
+        ? morning.map((a, i) => (
+            <div
+              key={i}
+              style={{
+                background: i === 0 ? "#161b26" : "transparent",
+                border: "1px solid #1f2633", borderRadius: 14, padding: "14px 16px",
+                display: "flex", alignItems: "center", gap: 12,
+              }}
+            >
+              <Badge line={a.line} />
+              <div>
+                <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
+                  {a.dest}행{a.express ? " · ⚡급행" : ""}
+                </div>
+                <div style={{ fontSize: i === 0 ? 26 : 19, fontWeight: 700, lineHeight: 1.1 }}>
+                  {a.message}
+                </div>
+              </div>
+            </div>
+          ))
+        : emptyMsg}
 
-      {!arrivals.length && !err && (
-        <div style={{ color: "#7d8694" }}>
-          {loaded ? "지금 도착 예정 열차가 없어요" : "불러오는 중…"}
-        </div>
-      )}
+      {/* ── 퇴근길 ── */}
+      <SectionTitle>🏠 퇴근길 · 을지로3가 + 명동</SectionTitle>
+      {groups.size
+        ? [...groups.entries()].map(([key, arr]) => {
+            const [station, , head] = key.split("|");
+            return (
+              <div
+                key={key}
+                style={{
+                  border: "1px solid #1f2633", borderRadius: 14, padding: "11px 14px",
+                  display: "flex", alignItems: "center", gap: 12,
+                }}
+              >
+                <Badge line={arr[0].line} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
+                    {station} · {head}
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+                    {arr.map((a) => a.message).join("  ·  ")}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        : emptyMsg}
 
-      <div style={{ marginTop: "auto", fontSize: 12, color: "#5a6270" }}>
+      <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, color: "#5a6270" }}>
         업데이트 {updated} · 15초마다 자동 갱신
       </div>
     </main>

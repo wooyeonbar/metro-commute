@@ -6,6 +6,7 @@ export type Arrival = {
   direction: string;   // 상행/하행
   dest: string;        // 종착역
   message: string;     // "3분 후 (충무로)" 같은 도착 메시지
+  heading: string;     // "동대문역사문화공원방면" 같은 진행 방면
   minutes: number | null; // 도착까지 분 (없으면 null → message 참고)
   express: boolean;    // 급행 여부
 };
@@ -53,6 +54,7 @@ export async function getArrivals(opts: Opts = {}): Promise<Arrival[]> {
         direction: t.updnLine,
         dest: t.bstatnNm,
         message: t.arvlMsg2, // 사람이 읽는 메시지가 가장 정확
+        heading: String(t.trainLineNm ?? "").split(" - ")[1] ?? "",
         minutes: sec > 0 ? Math.round(sec / 60) : null,
         express: String(t.btrainSttus ?? "").includes("급행"),
       } as Arrival;
