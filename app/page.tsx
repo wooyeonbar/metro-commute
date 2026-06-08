@@ -35,6 +35,18 @@ function Badge({ line }: { line: string }) {
   );
 }
 
+// 방향 화살표: 2호선(을지로3가 기준) 을지로4가방면 → / 을지로입구방면 ←, 그 외 상행 ↑ / 하행 ↓
+function arrowOf(line: string, direction: string, heading: string): string {
+  if (line === "2호선") {
+    if (heading.includes("을지로4가")) return "→";
+    if (heading.includes("을지로입구")) return "←";
+    return direction === "내선" ? "→" : "←";
+  }
+  if (direction === "상행") return "↑";
+  if (direction === "하행") return "↓";
+  return "";
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 14, color: "#7d8694", letterSpacing: 1, margin: "10px 0 2px" }}>
@@ -137,7 +149,7 @@ export default function Home() {
                 <Badge line={arr[0].line} />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
-                    {station} · {head}
+                    {station} · {head} {arrowOf(arr[0].line, arr[0].direction, head)}
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
                     {arr.map((a) => a.message).join("  ·  ")}

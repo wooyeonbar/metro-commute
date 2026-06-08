@@ -19,6 +19,18 @@ function fmt(arr: Arrival[]) {
     : "도착 정보 없음";
 }
 
+// 방향 화살표: 2호선(을지로3가 기준) 을지로4가방면 → / 을지로입구방면 ←, 그 외 상행 ↑ / 하행 ↓
+function arrowOf(line: string, direction: string, heading: string): string {
+  if (line === "2호선") {
+    if (heading.includes("을지로4가")) return "→";
+    if (heading.includes("을지로입구")) return "←";
+    return direction === "내선" ? "→" : "←";
+  }
+  if (direction === "상행") return "↑";
+  if (direction === "하행") return "↓";
+  return "";
+}
+
 const TG = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 
 export async function GET(req: Request) {
@@ -84,7 +96,7 @@ export async function GET(req: Request) {
       const groups = new Map<string, { head: string; arr: Arrival[] }>();
       stations.forEach((st, i) => {
         for (const a of lists[i]) {
-          const key = `${st} ${a.line} ${a.heading || a.direction}`;
+          const key = `${st} ${a.line} ${a.heading || a.direction} ${arrowOf(a.line, a.direction, a.heading)}`.trim();
           const g = groups.get(key) ?? { head: key, arr: [] };
           if (g.arr.length < 2) g.arr.push(a);
           groups.set(key, g);
