@@ -62,5 +62,5 @@ export async function getArrivals(opts: Opts = {}): Promise<Arrival[]> {
         express: String(t.btrainSttus ?? "").includes("급행"),
       } as Arrival;
     })
-    .sort((a, b) => (a.minutes ?? 999) - (b.minutes ?? 999));
+    .sort((a, b) => (a.minutes ?? 0) - (b.minutes ?? 0)); // 곧 도착(0초)이 맨 앞
 }
