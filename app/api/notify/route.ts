@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getArrivals, Arrival } from "../../lib/metro";
+import { getWeather, fmtWeather } from "../../lib/weather";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,10 @@ export async function GET(req: Request) {
   } catch (e: any) {
     text = `⚠️ 지하철 정보 조회 실패: ${e.message}`;
   }
+
+  // 오늘 날씨 한 줄 (최저/최고·강수확률) — 실패해도 무시
+  const w = fmtWeather(await getWeather().catch(() => null));
+  if (w) text = `${w}\n\n${text}`;
 
   // 발송 (확인 버튼 포함 — 누르면 2분 반복 중단)
   const tg = await fetch(TG(token, "sendMessage"), {

@@ -75,6 +75,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   const [morning, setMorning] = useState<Arrival[]>([]);
+  const [weather, setWeather] = useState<{ tmin: number; tmax: number; pop: number } | null>(null);
   const [evening, setEvening] = useState<Arrival[]>([]);
   const [updated, setUpdated] = useState<string>("");
   const [err, setErr] = useState<string>("");
@@ -87,6 +88,7 @@ export default function Home() {
       if (!d.ok) throw new Error(d.error);
       setMorning(d.morning ?? []);
       setEvening(d.evening ?? []);
+      setWeather(d.weather ?? null);
       setUpdated(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       setErr("");
       setLoaded(true);
@@ -149,6 +151,25 @@ export default function Home() {
       }}
     >
       {err && <div style={{ color: "#ff6b6b" }}>{err}</div>}
+
+      {/* ── 오늘 날씨 ── */}
+      {weather && (
+        <div
+          style={{
+            border: "1px solid #1f2633", borderRadius: 14, padding: "10px 14px",
+            display: "flex", alignItems: "center", gap: 10, fontSize: 14,
+          }}
+        >
+          <span style={{ fontSize: 18 }}>{weather.pop >= 50 ? "☔" : "🌤"}</span>
+          <span>
+            <b style={{ color: "#6fb7ff" }}>{weather.tmin}°</b>
+            {" / "}
+            <b style={{ color: "#ff8a6f" }}>{weather.tmax}°</b>
+            <span style={{ color: "#7d8694" }}> · 강수확률 </span>
+            <b>{weather.pop}%</b>
+          </span>
+        </div>
+      )}
 
       {/* ── 출근길 ── */}
       <SectionTitle>🏢 출근길 · 신당 → 을지로3가</SectionTitle>

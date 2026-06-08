@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getArrivals, Arrival } from "../../lib/metro";
+import { getWeather } from "../../lib/weather";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +23,10 @@ export async function GET() {
   const morning = await safe(() => getArrivals());
   const ulji = await safe(() => getArrivals({ station: pmStation, direction: null, subwayId: "" }));
   const myeong = await safe(() => getArrivals({ station: "명동", direction: null, subwayId: "" }));
+  const weather = await getWeather();
   const evening = [
     ...ulji.map((a) => ({ ...a, station: pmStation })),
     ...myeong.map((a) => ({ ...a, station: "명동" })),
   ];
-  return NextResponse.json({ ok: true, morning: morning.slice(0, 3), evening, at: Date.now() });
+  return NextResponse.json({ ok: true, morning: morning.slice(0, 3), evening, weather, at: Date.now() });
 }
