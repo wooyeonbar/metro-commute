@@ -75,7 +75,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   const [morning, setMorning] = useState<Arrival[]>([]);
-  const [weather, setWeather] = useState<{ tmin: number; tmax: number; pop: number } | null>(null);
+  const [weather, setWeather] = useState<{ tmin: number; tmax: number; popAm: number; popPm: number } | null>(null);
   const [evening, setEvening] = useState<Arrival[]>([]);
   const [updated, setUpdated] = useState<string>("");
   const [err, setErr] = useState<string>("");
@@ -160,13 +160,15 @@ export default function Home() {
             display: "flex", alignItems: "center", gap: 10, fontSize: 14,
           }}
         >
-          <span style={{ fontSize: 18 }}>{weather.pop >= 50 ? "☔" : "🌤"}</span>
+          <span style={{ fontSize: 18 }}>{Math.max(weather.popAm, weather.popPm) >= 50 ? "☔" : "🌤"}</span>
           <span>
             <b style={{ color: "#6fb7ff" }}>{weather.tmin}°</b>
             {" / "}
             <b style={{ color: "#ff8a6f" }}>{weather.tmax}°</b>
-            <span style={{ color: "#7d8694" }}> · 강수확률 </span>
-            <b>{weather.pop}%</b>
+            <span style={{ color: "#7d8694" }}> · 강수확률 오전 </span>
+            <b>{weather.popAm}%</b>
+            <span style={{ color: "#7d8694" }}> · 오후 </span>
+            <b>{weather.popPm}%</b>
           </span>
         </div>
       )}
