@@ -1,7 +1,7 @@
 // 서울(중구, nx=60 ny=127) 오늘 날씨 — 기상청 단기예보 (네이버와 동일 출처)
 // 필요 env: KMA_API_KEY (공공데이터포털 일반 인증키 Decoding)
 
-export type Weather = { tmin: number; tmax: number; popAm: number; popPm: number };
+export type Weather = { tmin: number; tmax: number; popAm: number; popPm: number; popEve: number };
 
 let cache: { at: number; data: Weather } | null = null;
 
@@ -49,7 +49,7 @@ export async function getWeather(): Promise<Weather | null> {
     const tmin = num("TMN");
     const tmax = num("TMX");
     if (tmin === null || tmax === null) return cache?.data ?? null;
-    const data: Weather = { tmin, tmax, popAm: pops(0, 12), popPm: pops(12, 24) };
+    const data: Weather = { tmin, tmax, popAm: pops(0, 12), popPm: pops(12, 24), popEve: pops(18, 24) };
     cache = { at: Date.now(), data };
     return data;
   } catch {

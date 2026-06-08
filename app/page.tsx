@@ -75,7 +75,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   const [morning, setMorning] = useState<Arrival[]>([]);
-  const [weather, setWeather] = useState<{ tmin: number; tmax: number; popAm: number; popPm: number } | null>(null);
+  const [weather, setWeather] = useState<{ tmin: number; tmax: number; popAm: number; popPm: number; popEve: number } | null>(null);
   const [evening, setEvening] = useState<Arrival[]>([]);
   const [updated, setUpdated] = useState<string>("");
   const [err, setErr] = useState<string>("");
@@ -202,7 +202,10 @@ export default function Home() {
         : emptyMsg}
 
       {/* ── 퇴근길 ── */}
-      <SectionTitle>🏠 퇴근길 · 을지로3가 + 명동</SectionTitle>
+      <SectionTitle>
+        🏠 퇴근길 · 을지로3가 + 명동
+        {weather ? <span style={{ color: weather.popEve >= 50 ? "#ff8a6f" : "#7d8694" }}>{`  ·  ☔ 6시 이후 ${weather.popEve}%`}</span> : null}
+      </SectionTitle>
       {groups.length
         ? groups.map((g) => (
             <div
