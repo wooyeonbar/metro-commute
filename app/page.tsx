@@ -47,6 +47,24 @@ function arrowOf(line: string, direction: string, heading: string): string {
   return "";
 }
 
+// 열차 위치 정보 제거, 도착 시점만 표시
+function cleanMsg(message: string): string {
+  const m = message.replace(/\s*\([^)]*\)/g, "").trim();
+  if (/분|초/.test(m)) return m;          // "3분 30초 후" 류는 그대로
+  if (/도착|진입|출발/.test(m)) return "곧 도착"; // "OO 도착/진입/출발" → 곧 도착
+  return m;
+}
+
+// 퇴근길 고정 순서: 2호선← , 2호선→ , 3호선↑ , 3호선↓ , 4호선↑ , 4호선↓
+function orderOf(line: string, arrow: string): number {
+  const order: Record<string, number> = {
+    "2호선←": 0, "2호선→": 1,
+    "3호선↑": 2, "3호선↓": 3,
+    "4호선↑": 4, "4호선↓": 5,
+  };
+  return order[line + arrow] ?? 9;
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 14, color: "#7d8694", letterSpacing: 1, margin: "10px 0 2px" }}>
@@ -93,20 +111,34 @@ export default function Home() {
     };
   }, []);
 
-  // 퇴근길: 역·호선·방면별 그룹 (각 2대)
-  const groups = new Map<string, Arrival[]>();
+  // 퇴근길: 호선·방향별 그룹 (각 3대), 고정 순서 정렬
+  type Group = { arrow: string; line: string; heading: string; station: string; arr: Arrival[] };
+  const groupMap = new Map<string, Group>();
   for (const a of evening) {
-    const key = `${a.station}|${a.line}|${a.heading || a.direction}`;
-    const g = groups.get(key) ?? [];
-    if (g.length < 2) g.push(a);
-    groups.set(key, g);
+    const arrow = arrowOf(a.line, a.direction, a.heading ?? "");
+    const key = `${a.station}|${a.line}|${arrow}`;
+    const g = groupMap.get(key) ?? {
+      arrow, line: a.line, heading: a.heading || a.direction, station: a.station ?? "", arr: [],
+    };
+    if (g.arr.length < 3) g.arr.push(a);
+    groupMap.set(key, g);
   }
+  const groups = [...groupMap.values()].sort(
+    (a, b) => orderOf(a.line, a.arrow) - orderOf(b.line, b.arrow)
+  );
 
   const emptyMsg = (
     <div style={{ color: "#7d8694", fontSize: 14, padding: "6px 2px" }}>
       {loaded ? "지금 도착 예정 열차가 없어요" : "불러오는 중…"}
     </div>
   );
+
+  // 출근길 카드 크기: 전(큼) → 전전(중간) → 전전전(작음)
+  const mSize = [
+    { font: 28, pad: "16px 18px", label: 12 },
+    { font: 20, pad: "12px 16px", label: 11 },
+    { font: 16, pad: "10px 14px", label: 11 },
+  ];
 
   return (
     <main
@@ -121,53 +153,61 @@ export default function Home() {
       {/* ── 출근길 ── */}
       <SectionTitle>🏢 출근길 · 신당 → 을지로3가</SectionTitle>
       {morning.length
-        ? morning.map((a, i) => (
-            <div
-              key={i}
-              style={{
-                background: i === 0 ? "#161b26" : "transparent",
-                border: "1px solid #1f2633", borderRadius: 14, padding: "14px 16px",
-                display: "flex", alignItems: "center", gap: 12,
-              }}
-            >
-              <Badge line={a.line} />
-              <div>
-                <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
-                  {a.dest}행{a.express ? " · ⚡급행" : ""}
-                </div>
-                <div style={{ fontSize: i === 0 ? 26 : 19, fontWeight: 700, lineHeight: 1.1 }}>
-                  {a.message}
-                </div>
-              </div>
-            </div>
-          ))
-        : emptyMsg}
-
-      {/* ── 퇴근길 ── */}
-      <SectionTitle>🏠 퇴근길 · 을지로3가 + 명동</SectionTitle>
-      {groups.size
-        ? [...groups.entries()].map(([key, arr]) => {
-            const [station, , head] = key.split("|");
+        ? morning.slice(0, 3).map((a, i) => {
+            const s = mSize[i] ?? mSize[2];
             return (
               <div
-                key={key}
+                key={i}
                 style={{
-                  border: "1px solid #1f2633", borderRadius: 14, padding: "11px 14px",
+                  background: i === 0 ? "#161b26" : "transparent",
+                  border: "1px solid #1f2633", borderRadius: 14, padding: s.pad,
                   display: "flex", alignItems: "center", gap: 12,
                 }}
               >
-                <Badge line={arr[0].line} />
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
-                    {station} · {head} {arrowOf(arr[0].line, arr[0].direction, head)}
+                <Badge line={a.line} />
+                <div>
+                  <div style={{ fontSize: s.label, color: "#7d8694", marginBottom: 3 }}>
+                    {a.dest}행{a.express ? " · ⚡급행" : ""}
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
-                    {arr.map((a) => a.message).join("  ·  ")}
+                  <div style={{ fontSize: s.font, fontWeight: 700, lineHeight: 1.1 }}>
+                    {cleanMsg(a.message)}
                   </div>
                 </div>
               </div>
             );
           })
+        : emptyMsg}
+
+      {/* ── 퇴근길 ── */}
+      <SectionTitle>🏠 퇴근길 · 을지로3가 + 명동</SectionTitle>
+      {groups.length
+        ? groups.map((g) => (
+            <div
+              key={g.station + g.line + g.arrow}
+              style={{
+                border: "1px solid #1f2633", borderRadius: 14, padding: "11px 14px",
+                display: "flex", alignItems: "center", gap: 12,
+              }}
+            >
+              <span
+                style={{
+                  width: 26, fontSize: 22, fontWeight: 800, textAlign: "center",
+                  flexShrink: 0, lineHeight: 1,
+                }}
+              >
+                {g.arrow}
+              </span>
+              <Badge line={g.line} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>
+                  {g.station} · {g.heading}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>
+                  {g.arr.map((a) => cleanMsg(a.message)).join("  ·  ")}
+                </div>
+              </div>
+            </div>
+          ))
         : emptyMsg}
 
       <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, color: "#5a6270" }}>

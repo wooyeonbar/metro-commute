@@ -13,9 +13,27 @@ function nowKST() {
   };
 }
 
+// 열차 위치 정보 제거, 도착 시점만
+function cleanMsg(message: string): string {
+  const m = message.replace(/\s*\([^)]*\)/g, "").trim();
+  if (/분|초/.test(m)) return m;
+  if (/도착|진입|출발/.test(m)) return "곧 도착";
+  return m;
+}
+
+// 퇴근길 고정 순서: 2호선← , 2호선→ , 3호선↑ , 3호선↓ , 4호선↑ , 4호선↓
+function orderOf(line: string, arrow: string): number {
+  const order: Record<string, number> = {
+    "2호선←": 0, "2호선→": 1,
+    "3호선↑": 2, "3호선↓": 3,
+    "4호선↑": 4, "4호선↓": 5,
+  };
+  return order[line + arrow] ?? 9;
+}
+
 function fmt(arr: Arrival[]) {
   return arr.length
-    ? arr.map((a, i) => `${i + 1}. ${a.message}${a.express ? " ⚡급행" : ""} → ${a.dest}행`).join("\n")
+    ? arr.map((a, i) => `${i + 1}. ${cleanMsg(a.message)}${a.express ? " ⚡급행" : ""}`).join("\n")
     : "도착 정보 없음";
 }
 
@@ -93,17 +111,22 @@ export async function GET(req: Request) {
       const lists = await Promise.all(
         stations.map((s) => getArrivals({ station: s, direction: null, subwayId: "" }).catch(() => []))
       );
-      const groups = new Map<string, { head: string; arr: Arrival[] }>();
+      const groups = new Map<string, { head: string; line: string; arrow: string; arr: Arrival[] }>();
       stations.forEach((st, i) => {
         for (const a of lists[i]) {
-          const key = `${st} ${a.line} ${a.heading || a.direction} ${arrowOf(a.line, a.direction, a.heading)}`.trim();
-          const g = groups.get(key) ?? { head: key, arr: [] };
-          if (g.arr.length < 2) g.arr.push(a);
+          const arrow = arrowOf(a.line, a.direction, a.heading);
+          const key = `${st}|${a.line}|${arrow}`;
+          const g = groups.get(key) ?? {
+            head: `${arrow} ${a.line} ${a.heading || a.direction}`.trim(),
+            line: a.line, arrow, arr: [],
+          };
+          if (g.arr.length < 3) g.arr.push(a);
           groups.set(key, g);
         }
       });
-      const body = [...groups.entries()]
-        .map(([k, g]) => `▼ ${k}\n${fmt(g.arr)}`)
+      const body = [...groups.values()]
+        .sort((x, y) => orderOf(x.line, x.arrow) - orderOf(y.line, y.arrow))
+        .map((g) => `${g.head}\n${fmt(g.arr)}`)
         .join("\n\n");
       text = `🚇 퇴근길\n${body || "도착 정보 없음"}`;
     }
