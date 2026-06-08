@@ -2,6 +2,7 @@
 // 환경변수로 역/호선/방향을 고정해두면 출근 동선 하나만 본다.
 
 export type Arrival = {
+  subwayId: string;    // 노선 코드 (1002 등)
   line: string;        // 호선 이름
   direction: string;   // 상행/하행
   dest: string;        // 종착역
@@ -53,6 +54,7 @@ export async function getArrivals(opts: Opts = {}): Promise<Arrival[]> {
     .map((t) => {
       const sec = Number(t.barvlDt);
       return {
+        subwayId: t.subwayId,
         line: LINE_NAME[t.subwayId] ?? t.subwayId,
         direction: t.updnLine,
         dest: t.bstatnNm,
