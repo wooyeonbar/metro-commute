@@ -15,6 +15,7 @@ export default function Home() {
   const [arrivals, setArrivals] = useState<Arrival[]>([]);
   const [updated, setUpdated] = useState<string>("");
   const [err, setErr] = useState<string>("");
+  const [loaded, setLoaded] = useState(false);
 
   async function load() {
     try {
@@ -24,6 +25,7 @@ export default function Home() {
       setArrivals(d.arrivals.slice(0, 3));
       setUpdated(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       setErr("");
+      setLoaded(true);
     } catch (e: any) {
       setErr(e.message ?? "오류");
     }
@@ -74,7 +76,9 @@ export default function Home() {
       ))}
 
       {!arrivals.length && !err && (
-        <div style={{ color: "#7d8694" }}>불러오는 중…</div>
+        <div style={{ color: "#7d8694" }}>
+          {loaded ? "지금 도착 예정 열차가 없어요" : "불러오는 중…"}
+        </div>
       )}
 
       <div style={{ marginTop: "auto", fontSize: 12, color: "#5a6270" }}>

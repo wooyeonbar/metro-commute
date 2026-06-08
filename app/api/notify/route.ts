@@ -11,7 +11,7 @@ function nowKST() {
 
 function fmt(arr: Arrival[]) {
   return arr.length
-    ? arr.map((a, i) => `${i + 1}. [${a.line}] ${a.message}${a.express ? " ⚡급행" : ""} → ${a.dest}행`).join("\n")
+    ? arr.map((a, i) => `${i + 1}. ${a.message}${a.express ? " ⚡급행" : ""} → ${a.dest}행`).join("\n")
     : "도착 정보 없음";
 }
 
@@ -37,27 +37,42 @@ export async function GET(req: Request) {
 
   let text: string;
 
-  if (morning) {
-    // 출근: env STATION + env DIRECTION (회사 방향)
-    const arr = (await getArrivals()).slice(0, 3);
-    text = `🚇 ${process.env.STATION} 출근길 (회사 방향)\n${fmt(arr)}`;
-  } else {
-    // 퇴근: 퇴근역(없으면 STATION) + 양방향(direction: null)
-    // 을지로3가는 2·3호선 환승역이라 subwayId를 비워 두 호선 모두 표시
-    const station = process.env.STATION_PM || process.env.STATION;
-    const all = await getArrivals({ station, direction: null, subwayId: "" });
-    const up = all.filter((a) => a.direction === "상행").slice(0, 2);
-    const down = all.filter((a) => a.direction === "하행").slice(0, 2);
-    text =
-      `🚇 ${station} 퇴근길 (양방향)\n` +
-      `▼ 상행\n${fmt(up)}\n\n▼ 하행\n${fmt(down)}`;
+  try {
+    if (morning) {
+      // 출근: env STATION + env DIRECTION (회사 방향)
+      const arr = (await getArrivals()).slice(0, 3);
+      text = `🚇 ${process.env.STATION} 출근길 (회사 방향)\n${fmt(arr)}`;
+    } else {
+      // 퇴근: 환승역(2·3호선). 2호선은 내선/외선, 3호선은 상행/하행이라
+      // 호선·방향별로 동적으로 묶어서 각 2대씩 표시
+      const station = process.env.STATION_PM || process.env.STATION;
+      const all = await getArrivals({ station, direction: null, subwayId: "" });
+      const groups = new Map<string, Arrival[]>();
+      for (const a of all) {
+        const key = `${a.line} ${a.direction}`;
+        const g = groups.get(key) ?? [];
+        if (g.length < 2) g.push(a);
+        groups.set(key, g);
+      }
+      const body = [...groups.entries()]
+        .map(([k, arr]) => `▼ ${k}\n${fmt(arr)}`)
+        .join("\n\n");
+      text = `🚇 ${station} 퇴근길\n${body || "도착 정보 없음"}`;
+    }
+  } catch (e: any) {
+    text = `⚠️ 지하철 정보 조회 실패: ${e.message}`;
   }
 
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  // 텔레그램 전송 결과를 확인해 실패가 묻히지 않게 함
+  const tg = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, text }),
   });
+  const tgRes = await tg.json().catch(() => null);
+  if (!tgRes || !tgRes.ok) {
+    return NextResponse.json({ ok: false, error: "텔레그램 전송 실패", detail: tgRes }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, mode: morning ? "출근" : "퇴근" });
 }
