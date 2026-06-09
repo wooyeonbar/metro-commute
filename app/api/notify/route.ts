@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getArrivals, Arrival } from "../../lib/metro";
 import { getWeather, fmtWeather } from "../../lib/weather";
+import { kvGet } from "../../lib/kv";
 
 export const dynamic = "force-dynamic";
 
@@ -52,18 +53,6 @@ function arrowOf(line: string, direction: string, heading: string): string {
 
 const TG = (token: string, method: string) => `https://api.telegram.org/bot${token}/${method}`;
 
-// getUpdates를 최대 3회 재시도. 성공 시 result 배열, 끝까지 실패하면 null
-async function getUpdatesReliable(token: string): Promise<any[] | null> {
-  for (let i = 0; i < 3; i++) {
-    try {
-      const r = await fetch(TG(token, "getUpdates") + "?timeout=0&limit=100", { cache: "no-store" });
-      const j = await r.json();
-      if (j && j.ok) return j.result || [];
-    } catch {}
-    await new Promise((res) => setTimeout(res, 300));
-  }
-  return null;
-}
 
 export async function GET(req: Request) {
   const auth = req.headers.get("authorization");
@@ -88,30 +77,10 @@ export async function GET(req: Request) {
   const mode = morning ? "출근" : "퇴근";
   const ackData = `ack:${mode}:${date}`; // 확인 버튼 식별자 (모드+날짜)
 
-  // 0) 오늘 이 모드의 "확인" 버튼이 이미 눌렸으면 발송 안 함 (2분 반복 중단)
-  const updates = await getUpdatesReliable(token);
-  if (updates) {
-    const hits = updates.filter((u: any) => u.callback_query?.data === ackData);
-    if (hits.length) {
-      for (const h of hits) {
-        // 텔레그램 로딩 스피너 멈춤 (처리 응답)
-        fetch(TG(token, "answerCallbackQuery"), {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ callback_query_id: h.callback_query.id, text: "오늘 알림 껐어요 ✅" }),
-        }).catch(() => {});
-        // 버튼 제거
-        const mid = h.callback_query.message?.message_id;
-        if (mid) {
-          fetch(TG(token, "editMessageReplyMarkup"), {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: chatId, message_id: mid, reply_markup: { inline_keyboard: [] } }),
-          }).catch(() => {});
-        }
-      }
-      return NextResponse.json({ ok: true, skipped: "확인됨 — 재발송 중단" });
-    }
+  // 0) DB에서 오늘 이 모드의 "확인" 여부 확인 (웹훅이 기록) → 눌렸으면 발송 안 함
+  if ((await kvGet(ackData)) === "1") {
+    return NextResponse.json({ ok: true, skipped: "확인됨 — 재발송 중단" });
   }
-  // updates === null (getUpdates 3회 실패) 이면 안전하게 발송으로 진행
 
   let text: string;
 
