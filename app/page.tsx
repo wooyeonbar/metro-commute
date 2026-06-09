@@ -250,6 +250,48 @@ function MainView({ cfg, onEdit }: { cfg: Cfg; onEdit: () => void }) {
   const empty = <div style={{ color: "#7d8694", fontSize: 14, padding: "6px 2px" }}>{loaded ? "지금 도착 예정 열차가 없어요" : "불러오는 중…"}</div>;
   const mSize = [{ font: 26, pad: "15px 16px", label: 12 }, { font: 19, pad: "11px 14px", label: 11 }, { font: 15, pad: "9px 13px", label: 11 }];
   const pmLabel = cfg.pmMain + (cfg.pmSub ? " + " + cfg.pmSub : "");
+  // 오전(정오 이전)=출근 먼저, 오후=퇴근 먼저
+  const kstHour = (new Date(Date.now() + 9 * 3600 * 1000)).getUTCHours();
+  const commuteFirst = kstHour < 12;
+
+  const morningBlock = (
+    <div key="m" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* 출근길: 구간별 */}
+      {morning.map((leg, li) => (
+        <div key={li} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <SectionTitle>{li === 0 ? "🏢 출발" : "🔁 환승"} · {leg.name} {leg.heading ? `(${leg.heading})` : leg.updnLine ? `(${leg.updnLine})` : ""}</SectionTitle>
+          {leg.trains.length ? leg.trains.slice(0, 3).map((a, i) => {
+            const s = mSize[i] ?? mSize[2];
+            return (
+              <div key={i} style={{ ...card, background: i === 0 ? "#161b26" : "transparent", padding: s.pad, display: "flex", alignItems: "center", gap: 12 }}>
+                <Badge line={a.line} />
+                <div><div style={{ fontSize: s.label, color: "#7d8694", marginBottom: 3 }}>{a.dest}행{a.express ? " · ⚡급행" : ""}</div>
+                  <div style={{ fontSize: s.font, fontWeight: 700, lineHeight: 1.1 }}>{cleanMsg(a.message)}</div></div>
+              </div>
+            );
+          }) : empty}
+        </div>
+      ))}
+    </div>
+  );
+  const eveningBlock = (
+    <div key="e" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* 퇴근길 */}
+      <SectionTitle>🏠 퇴근길 · {pmLabel}
+        {weather ? <span style={{ color: weather.popEve >= 50 ? "#ff8a6f" : "#7d8694" }}>{`  ·  ☔ 6시 이후 ${weather.popEve}%`}</span> : null}
+      </SectionTitle>
+      {groups.length ? groups.map((g) => (
+        <div key={g.station + g.line + g.arrow} style={{ ...card, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ width: 26, fontSize: 22, fontWeight: 800, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>{g.arrow}</span>
+          <Badge line={g.line} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>{g.station} · {g.heading}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{g.arr.map((a) => cleanMsg(a.message)).join("  ·  ")}</div></div>
+        </div>
+      )) : empty}
+    </div>
+  );
+
 
   return (
     <main style={{ minHeight: "100dvh", background: "#0b0d12", color: "#f5f7fa",
@@ -269,36 +311,7 @@ function MainView({ cfg, onEdit }: { cfg: Cfg; onEdit: () => void }) {
         </div>
       )}
 
-      {/* 출근길: 구간별 */}
-      {morning.map((leg, li) => (
-        <div key={li} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <SectionTitle>{li === 0 ? "🏢 출발" : "🔁 환승"} · {leg.name} {leg.heading ? `(${leg.heading})` : leg.updnLine ? `(${leg.updnLine})` : ""}</SectionTitle>
-          {leg.trains.length ? leg.trains.slice(0, 3).map((a, i) => {
-            const s = mSize[i] ?? mSize[2];
-            return (
-              <div key={i} style={{ ...card, background: i === 0 ? "#161b26" : "transparent", padding: s.pad, display: "flex", alignItems: "center", gap: 12 }}>
-                <Badge line={a.line} />
-                <div><div style={{ fontSize: s.label, color: "#7d8694", marginBottom: 3 }}>{a.dest}행{a.express ? " · ⚡급행" : ""}</div>
-                  <div style={{ fontSize: s.font, fontWeight: 700, lineHeight: 1.1 }}>{cleanMsg(a.message)}</div></div>
-              </div>
-            );
-          }) : empty}
-        </div>
-      ))}
-
-      {/* 퇴근길 */}
-      <SectionTitle>🏠 퇴근길 · {pmLabel}
-        {weather ? <span style={{ color: weather.popEve >= 50 ? "#ff8a6f" : "#7d8694" }}>{`  ·  ☔ 6시 이후 ${weather.popEve}%`}</span> : null}
-      </SectionTitle>
-      {groups.length ? groups.map((g) => (
-        <div key={g.station + g.line + g.arrow} style={{ ...card, padding: "11px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-          <span style={{ width: 26, fontSize: 22, fontWeight: 800, textAlign: "center", flexShrink: 0, lineHeight: 1 }}>{g.arrow}</span>
-          <Badge line={g.line} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: "#7d8694", marginBottom: 3 }}>{g.station} · {g.heading}</div>
-            <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2 }}>{g.arr.map((a) => cleanMsg(a.message)).join("  ·  ")}</div></div>
-        </div>
-      )) : empty}
+      {commuteFirst ? [morningBlock, eveningBlock] : [eveningBlock, morningBlock]}
 
       <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, color: "#5a6270" }}>업데이트 {updated} · 30초마다 자동 갱신</div>
     </main>
