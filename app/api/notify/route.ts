@@ -123,6 +123,11 @@ export async function GET(req: Request) {
   const w = fmtWeather(await getWeather().catch(() => null));
   if (w) text = `${w}\n\n${text}`;
 
+  // 발송 직전 DB 재확인 — 메시지 만드는 사이(수 초)에 확인 누른 경우 트레일링 메시지 차단
+  if ((await kvGet(ackData)) === "1") {
+    return NextResponse.json({ ok: true, skipped: "발송 직전 확인됨 — 중단" });
+  }
+
   // 발송 (확인 버튼 포함 — 누르면 2분 반복 중단)
   const tg = await fetch(TG(token, "sendMessage"), {
     method: "POST",

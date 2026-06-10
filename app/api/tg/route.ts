@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { kvSet } from "../../lib/kv";
+import { kvSet, kvGet } from "../../lib/kv";
 
 export const dynamic = "force-dynamic";
 const TG = (t: string, m: string) => `https://api.telegram.org/bot${t}/${m}`;
@@ -37,4 +37,14 @@ export async function POST(req: Request) {
     }
   }
   return NextResponse.json({ ok: true });
+}
+
+export async function GET(req: Request) {
+  const u = new URL(req.url);
+  if (u.searchParams.get("secret") !== process.env.CRON_SECRET) {
+    return NextResponse.json({ ok: false }, { status: 401 });
+  }
+  const key = u.searchParams.get("key") || "";
+  const val = await kvGet(key);
+  return NextResponse.json({ ok: true, key, val });
 }
