@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getArrivals, Arrival } from "../../lib/metro";
 import { getWeather, fmtWeather } from "../../lib/weather";
-import { kvGet } from "../../lib/kv";
+import { kvGet, kvPush } from "../../lib/kv";
 
 export const dynamic = "force-dynamic";
 
@@ -142,6 +142,10 @@ export async function GET(req: Request) {
   if (!tgRes || !tgRes.ok) {
     return NextResponse.json({ ok: false, error: "텔레그램 전송 실패", detail: tgRes }, { status: 500 });
   }
+
+  // 보낸 메시지 id 누적 — 확인 누르면 웹훅이 이 목록 전체의 버튼을 제거
+  const mid = tgRes.result?.message_id;
+  if (mid) await kvPush(`msgs:${mode}:${date}`, String(mid), 50000);
 
   return NextResponse.json({ ok: true, mode });
 }

@@ -25,3 +25,17 @@ export async function kvSet(key: string, value: string, ttlSec?: number): Promis
     return (await kvCmd(cmd)) === "OK";
   } catch { return false; }
 }
+
+export async function kvPush(key: string, value: string, ttlSec?: number): Promise<void> {
+  try {
+    await kvCmd(["RPUSH", key, value]);
+    if (ttlSec) await kvCmd(["EXPIRE", key, String(ttlSec)]);
+  } catch {}
+}
+
+export async function kvList(key: string): Promise<string[]> {
+  try {
+    const r = await kvCmd(["LRANGE", key, 0, -1]);
+    return Array.isArray(r) ? r.map(String) : [];
+  } catch { return []; }
+}
